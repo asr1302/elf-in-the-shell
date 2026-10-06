@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELF IN THE SHELL v3.0 [C++ / LINUX TERMINAL] - MIGUEL SESSION</title>
+  <style>
+    :root {
+      --bg: #050b05;
+      --term-green: #33ff33;
+      --term-green-dim: #1a801a;
+      --term-green-glow: rgba(51, 255, 51, 0.4);
+      --term-alert: #ff3333;
+      --term-yellow: #ffff33;
+      --font-mono: 'Courier New', Courier, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--term-green);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding: 15px;
+      position: relative;
+    }
+
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 240, 0.06));
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .terminal-container {
+      max-width: 950px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid var(--term-green-dim);
+      box-shadow: 0 0 15px var(--term-green-glow);
+      padding: 20px;
+      background-color: rgba(5, 11, 5, 0.95);
+      border-radius: 6px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed var(--term-green-dim);
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+      font-size: 0.85rem;
+      color: var(--term-green-dim);
+    }
+
+    .status-badge {
+      color: var(--term-yellow);
+      font-weight: bold;
+    }
+
+    #output {
+      flex: 1;
+      min-height: 380px;
+      max-height: 65vh;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.45;
+      margin-bottom: 15px;
+      padding-right: 5px;
+    }
+
+    .line { margin-bottom: 6px; }
+    .line.sys { color: var(--term-green-dim); }
+    .line.err { color: var(--term-alert); }
+    .line.warn { color: var(--term-yellow); }
+    .line.user { color: #ffffff; font-weight: bold; }
+    .line.elf { color: #55ffff; }
+    .line.code { color: #a6e22e; background: rgba(255,255,255,0.03); padding: 4px; border-left: 2px solid #a6e22e; }
+
+    .input-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--term-green-dim);
+      padding-top: 12px;
+      width: 100%;
+    }
+
+    .prompt-label {
+      color: var(--term-green);
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    #cmd-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--term-green);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      text-shadow: 0 0 5px var(--term-green-glow);
+    }
+
+    .quick-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-cmd {
+      background: rgba(51, 255, 51, 0.1);
+      border: 1px solid var(--term-green-dim);
+      color: var(--term-green);
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-cmd:hover {
+      background: var(--term-green);
+      color: #000;
+      box-shadow: 0 0 8px var(--term-green);
+    }
+
+    #matrix-canvas {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 500;
+      opacity: 0.15;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="matrix-canvas"></canvas>
+
+  <div class="terminal-container">
+    <div class="header-bar">
+      <span>HOST: NORTH-POLE-SERVER [GCC v13.2 / Linux x86_64]</span>
+      <span>USER: <span class="status-badge">MIGUEL</span></span>
+      <span>LEVEL: <span class="status-badge" id="prog-badge">Nivel 1/24</span></span>
+    </div>
+
+    <div id="output"></div>
+
+    <form class="input-form" id="terminal-form" onsubmit="event.preventDefault(); handleCommand();">
+      <span class="prompt-label">miguel@cpp-shell:~$</span>
+      <input type="text" id="cmd-input" placeholder="g++ main.cpp -o elf && ./elf --flag FLAG{...}" autofocus autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button type="submit" class="btn-cmd" style="padding: 6px 14px;">Ejecutar</button>
+    </form>
+
+    <div class="quick-bar">
+      <button type="button" class="btn-cmd" onclick="runCmd('cat main.cpp')">📄 cat main.cpp</button>
+      <button type="button" class="btn-cmd" onclick="runCmd('g++ main.cpp -o elf')">🔨 g++ main.cpp -o elf</button>
+      <button type="button" class="btn-cmd" onclick="runCmd('elfo status')">📊 elfo status</button>
+      <button type="button" class="btn-cmd" onclick="runCmd('elfo hint')">💡 elfo hint</button>
+      <button type="button" class="btn-cmd" onclick="runCmd('man elf')">📖 man elf (Instrucciones)</button>
+      <button type="button" class="btn-cmd" onclick="runCmd('clear')">🧹 clear</button>
+    </div>
+  </div>
+
+  <script>
+    const GAME_DATA = {
+      1: { 
+        location: "Cocina / Cafetera", 
+        cppCode: `#include <iostream>
+#include <string>
+// Nivel 1: Cifrado Base64
+std::string cipher = "SG9sYSBNdW5kbyAhIEVsIGVsZm8geWEgZXN0YSBhcXVpLg==";
+int main() { std::cout << "Descifra la std::string cipher para obtener la flag." << std::endl; return 0; }`,
+        flag: "FLAG{Hola Mundo ! El elfo ya esta aqui.}", 
+        hint: "std::string en Base64. Puedes usar 'echo SG9sYS... | base64 -d' en tu shell." 
+      },
+      2: { 
+        location: "Enredo de Cables Ethernet", 
+        cppCode: `#include <iostream>
+// Nivel 2: Punteros y Morse
+const char* morse = "-.-. .- -... .-.. . ... / . -. .-. . -.. .- -.. --- ...";
+int main() { std::cout << *morse << std::endl; return 0; }`,
+        flag: "FLAG{CABLES_ENREDADOS}", 
+        hint: "Traduce los punteros a char Morse a su equivalente alfabético." 
+      },
+      3: { 
+        location: "Pantalla del Monitor", 
+        cppCode: `#include <iostream>
+// Nivel 3: Bug de tipos en C++
+int main() {
+    // std::cout << "Hola Miguel " + 2026; // BUG: Desplazamiento de puntero de cadena!
+    std::string s = "BUG_FIXED";
+    return 0;
+}`,
+        flag: "FLAG{BUG_FIXED}", 
+        hint: "Sumar 2026 a un char* en C++ mueve el puntero a memoria inválida. La solución es FLAG{BUG_FIXED}." 
+      },
+      4: { 
+        location: "Router Wi-Fi", 
+        cppCode: `#include <iostream>
+// Nivel 4: Hashing y Sockets
+// std::hash<std::string> md5("2026elfo");
+int main() { std::cout << "Router Hacked" << std::endl; }`,
+        flag: "FLAG{ROUTER_HACKED}", 
+        hint: "El flag es FLAG{ROUTER_HACKED}." 
+      },
+      5: { 
+        location: "Teclado del PC", 
+        cppCode: `#include <iostream>
+// Nivel 5: Bitwise Operations
+int main() {
+    char elf[] = {0b01000101, 0b01001100, 0b01000110, 0b01001111, 0};
+    std::cout << elf << std::endl;
+}`,
+        flag: "FLAG{BINARY_ELFE}", 
+        hint: "Convierte cada literal binario 0b... a ASCII -> E L F O." 
+      },
+      6: { 
+        location: "Ratón / Mousepad", 
+        cppCode: `#include <iostream>
+// Nivel 6: ROT-3 / Cifrado César
+void decode(std::string s) { for(char &c : s) c -= 3; }
+// Cipher input: HOSR`,
+        flag: "FLAG{ELFO}", 
+        hint: "Aplica resta de 3 a 'HOSR' en C++ -> E L F O." 
+      },
+      7: { 
+        location: "Silla del Escritorio", 
+        cppCode: `#include <iostream>
+#include <vector>
+// Nivel 7: Hex Vector
+std::vector<unsigned char> hex = {0x4E, 0x41, 0x56, 0x49, 0x44, 0x41, 0x44};`,
+        flag: "FLAG{NAVIDAD}", 
+        hint: "0x4E='N', 0x41='A', 0x56='V', 0x49='I'..." 
+      },
+      8: { 
+        location: "Lámpara de Estudio", 
+        cppCode: `#include <iostream>
+// Nivel 8: Network Protocols
+#define SSH_PORT 22`,
+        flag: "FLAG{PORT_22}", 
+        hint: "El puerto estándar de SSH en entornos Linux/Unix." 
+      },
+      9: { 
+        location: "Estantería de Libros", 
+        cppCode: `#include <iostream>
+// Nivel 9: Boolean Logic
+bool flag = true && (false || true);`,
+        flag: "FLAG{TRUE}", 
+        hint: "Evalúa el tipo bool resultado -> TRUE." 
+      },
+      10: { 
+        location: "Debajo de la Alfombra", 
+        cppCode: `#include <iostream>
+// Nivel 10: Vulnerabilidades SQL
+std::string query = "SELECT * FROM users WHERE user='miguel' AND pass='' OR 1=1 --";`,
+        flag: "FLAG{SQL_INJECTION}", hint: "Acrónimo de la vulnerabilidad de inyección SQL." 
+      },
+      11: { location: "Ventana / Radiador", cppCode: `// Nivel 11: Linux Process Table
+// system("ps aux | grep elfo");`, flag: "FLAG{PS_AUX}", hint: "Comando Unix para listar todos los procesos." },
+      12: { location: "Mochila / Auriculares", cppCode: `// Nivel 12: Git Version Control
+// git push origin main`, flag: "FLAG{GIT_PUSH}", hint: "Comando Git para subir commits al servidor remoto." },
+      13: { location: "Nevera / Frigorífico", cppCode: `// Nivel 13: HTTP Status Codes
+enum HttpStatus { NOT_FOUND = 404 };`, flag: "FLAG{404}", hint: "Código de estado HTTP Not Found." },
+      14: { location: "Cajón del Escritorio", cppCode: `// Nivel 14: Dynamic Memory Management
+// std::malloc vs RAM`, flag: "FLAG{RAM}", hint: "Memoria volátil del sistema." },
+      15: { location: "Detrás de la Pantalla", cppCode: `// Nivel 15: POSIX Permissions
+// uid_t root_uid = 0;`, flag: "FLAG{ROOT}", hint: "Nombre del superusuario en sistemas POSIX/Linux." },
+      16: { location: "Zapatero / Entrada", cppCode: `// Nivel 16: Binary Search O(log n)
+template<typename T> bool binary_search();`, flag: "FLAG{BINARY_SEARCH}", hint: "Búsqueda logarítmica en C++ STL (`std::binary_search`)." },
+      17: { location: "Mesa del Salón", cppCode: `// Nivel 17: IPv4 Subnetting
+const char* mask = "255.255.255.0";`, flag: "FLAG{255.255.255.0}", hint: "Máscara de subred /24." },
+      18: { location: "Enchufe / Regleta", cppCode: `#include <stack>
+// Nivel 18: LIFO Data Structure
+std::stack<int> s;`, flag: "FLAG{STACK}", hint: "Estructura de datos std::stack." },
+      19: { location: "Cojín del Sofá", cppCode: `// Nivel 19: Serialization
+// nlohmann::json j;`, flag: "FLAG{JSON}", hint: "Formato de serialización JSON." },
+      20: { location: "Manga / Cómic Cyberpunk", cppCode: `// Nivel 20: Cyberpunk Anime
+// Ghost in the Shell`, flag: "FLAG{SHELL}", hint: "Ghost in the..." },
+      21: { location: "Espejo del Baño", cppCode: `// Nivel 21: Infinite Loops
+while(true) { /* ... */ }`, flag: "FLAG{WHILE_TRUE}", hint: "Sintaxis de bucle infinito." },
+      22: { location: "Armario de la Ropa", cppCode: `#include <queue>
+// Nivel 22: FIFO Data Structure
+std::queue<int> q;`, flag: "FLAG{FIFO}", hint: "First In, First Out." },
+      23: { location: "Árbol de Navidad", cppCode: `// Nivel 23: chmod 777
+// system("chmod 777 /christmas/tree");`, flag: "FLAG{CHMOD_777}", hint: "Permisos universales en Unix." },
+      24: { location: "Caja del Regalo Principal", cppCode: `// Nivel 24: Master C++ Key
+#define MASTER_KEY "FELIZ_NAVIDAD_MIGUEL"`, flag: "FLAG{FELIZ_NAVIDAD_MIGUEL}", hint: "Contraseña maestra final." }
+    };
+
+    let currentLevel = 1;
+    try {
+      currentLevel = parseInt(localStorage.getItem('miguel_elfo_level') || '1');
+    } catch(e) { currentLevel = 1; }
+
+    let outputEl, inputEl, badgeEl;
+
+    function updateBadge() {
+      if (badgeEl) {
+        badgeEl.innerText = currentLevel > 24 ? "¡COMPLETADO! (24/24)" : "Nivel " + currentLevel + "/24";
+      }
+    }
+
+    function printLine(text, type) {
+      if (!outputEl) return;
+      var div = document.createElement('div');
+      div.className = 'line ' + (type || '');
+      div.innerText = text;
+      outputEl.appendChild(div);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+
+    function runCmd(cmdStr) {
+      if (!inputEl) return;
+      inputEl.value = cmdStr;
+      handleCommand();
+    }
+
+    function showManual() {
+      printLine("==================================================================", "sys");
+      printLine("           📖 MANUAL DEL DESARROLLADOR C++ / LINUX (MIGUEL)", "warn");
+      printLine("==================================================================", "sys");
+      printLine("Comandos disponibles en la Shell de Linux:");
+      printLine("  1. cat main.cpp                     Muestra el código C++ del enigma actual.");
+      printLine("  2. g++ main.cpp -o elf              Intenta compilar el archivo C++ del nivel.");
+      printLine("  3. ./elf --flag FLAG{...}           Envía la flag descifrada para pasar de nivel.");
+      printLine("  4. elfo hint                        Muestra una pista técnica del compilador/sistema.");
+      printLine("  5. elfo status                      Muestra tu nivel y genera código para tu novia.");
+      printLine("  6. man elf                          Muestra este manual de usuario.");
+      printLine("  7. clear                            Limpia el terminal.");
+      printLine("==================================================================
+", "sys");
+    }
+
+    function showCurrentLevelInfo() {
+      if (currentLevel > 24) {
+        printLine("
+🎉 ¡TODOS LOS MÓDULOS C++ DESENCRIPTADOS! 🎉", "warn");
+        printLine("Compilación exitosa (0 errores, 0 warnings). ¡Abre tu regalo final!", "elf");
+        return;
+      }
+
+      var lvl = GAME_DATA[currentLevel];
+      printLine("------------------------------------------------------------------", "sys");
+      printLine("🔓 [TARGET: LEVEL " + currentLevel + " / 24]", "warn");
+      printLine("📍 Ubicación física del elfo: " + lvl.location, "sys");
+      printLine("💻 Código C++ del enigma (Escribe 'cat main.cpp' para inspeccionar):", "elf");
+      printLine(lvl.cppCode, "code");
+      printLine("
+👉 Para enviar la solución, ejecuta:", "user");
+      printLine("   ./elf --flag FLAG{tu_respuesta}   (o simplemente introduce la flag)", "sys");
+      printLine("------------------------------------------------------------------
+", "sys");
+    }
+
+    function initTerminal() {
+      outputEl = document.getElementById('output');
+      inputEl = document.getElementById('cmd-input');
+      badgeEl = document.getElementById('prog-badge');
+
+      if (!outputEl || !inputEl) return;
+
+      updateBadge();
+
+      printLine("==================================================================", "sys");
+      printLine("     NORTH POLE C++ DEVELOPMENT ENVIRONMENT [MIGUEL SESSION]", "elf");
+      printLine("==================================================================", "sys");
+      printLine("gcc (Ubuntu 13.2.0-4ubuntu3) 13.2.0 - Target: x86_64-linux-gnu");
+      printLine("Se ha detectado una intrusión en el servidor de regalos de Navidad.
+");
+      
+      showManual();
+      showCurrentLevelInfo();
+    }
+
+    function handleCommand() {
+      if (!inputEl) return;
+      var val = inputEl.value.trim();
+      if (!val) return;
+
+      printLine("miguel@cpp-shell:~$ " + val, 'user');
+      inputEl.value = '';
+
+      var lowerVal = val.toLowerCase().replace(/—/g, '--').replace(/–/g, '--');
+
+      if (lowerVal === 'man elf' || lowerVal === 'manual' || lowerVal === 'help') {
+        showManual();
+        return;
+      }
+      if (lowerVal === 'cat main.cpp' || lowerVal === 'cat main') {
+        if (currentLevel <= 24) {
+          printLine("/// --- main.cpp [Level " + currentLevel + "] --- ///", "warn");
+          printLine(GAME_DATA[currentLevel].cppCode, "code");
+        } else {
+          printLine("No hay más archivos main.cpp por compilar.", "sys");
+        }
+        return;
+      }
+      if (lowerVal.startsWith('g++') || lowerVal === 'make') {
+        printLine("g++ -Wall -Wextra -O3 main.cpp -o elf", "sys");
+        printLine("compilation succeeded: 0 errors, 0 warnings.", "sys");
+        printLine("Ejecuta ./elf --flag FLAG{...} para verificar la respuesta.", "elf");
+        return;
+      }
+      if (lowerVal === 'clear') {
+        outputEl.innerHTML = '';
+        return;
+      }
+      if (lowerVal === 'matrix') {
+        toggleMatrix();
+        return;
+      }
+      if (lowerVal === 'elfo hint' || lowerVal === 'hint') {
+        if (currentLevel <= 24) {
+          printLine("💡 [GCC COMPILER HINT]: " + GAME_DATA[currentLevel].hint, "elf");
+        } else {
+          printLine("Has completado todos los niveles.", "sys");
+        }
+        return;
+      }
+      if (lowerVal === 'elfo status' || lowerVal === 'status') {
+        printLine("📊 ESTADO: Nivel " + Math.min(currentLevel, 24) + " de 24.", "warn");
+        var exportCode = btoa(JSON.stringify(currentLevel));
+        printLine("Código de Sincronización para tu novia: " + exportCode, "sys");
+        return;
+      }
+
+      if (currentLevel > 24) {
+        printLine("¡Ya has completado todos los niveles!", "warn");
+        return;
+      }
+
+      // Extraer la flag enviada ya sea con ./elf --flag FLAG{...} o introduciéndola directamente
+      var submittedFlag = val;
+      var flagMatch = val.match(/--flag\s+(.+)$/i);
+      if (flagMatch) {
+        submittedFlag = flagMatch[1].trim();
+      }
+
+      var targetFlag = GAME_DATA[currentLevel].flag;
+      var rawPassword = targetFlag.replace(/^FLAG\{/, '').replace(/\}$/, '').trim();
+
+      if (submittedFlag === targetFlag || submittedFlag.toLowerCase() === rawPassword.toLowerCase()) {
+        printLine("==================================================================", "sys");
+        printLine("✔ [BUILD SUCCESS]: Nivel " + currentLevel + " resuelto y verificado.", "sys");
+        printLine("==================================================================", "sys");
+        
+        currentLevel++;
+        try {
+          localStorage.setItem('miguel_elfo_level', currentLevel);
+        } catch(e) {}
+        updateBadge();
+
+        setTimeout(function() {
+          showCurrentLevelInfo();
+        }, 600);
+      } else {
+        printLine("✘ [RUNTIME ERROR]: Flag incorrecta. Segmentation fault (core dumped).", "err");
+      }
+    }
+
+    var matrixInterval = null;
+    function toggleMatrix() {
+      var canvas = document.getElementById('matrix-canvas');
+      if (!canvas) return;
+      if (canvas.style.display === 'block') {
+        canvas.style.display = 'none';
+        clearInterval(matrixInterval);
+        printLine("Efecto Matrix desactivado.", "sys");
+      } else {
+        canvas.style.display = 'block';
+        var ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        var chars = "011010010101010101010010101010";
+        var drops = Array(Math.floor(canvas.width / 20)).fill(1);
+        
+        matrixInterval = setInterval(function() {
+          ctx.fillStyle = "rgba(5, 11, 5, 0.05)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#33ff33";
+          ctx.font = "15px monospace";
+          drops.forEach(function(y, i) {
+            var text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * 20, y * 20);
+            if (y * 20 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+          });
+        }, 50);
+        printLine("Efecto Matrix activado.", "sys");
+      }
+    }
+
+    window.onload = function() {
+      initTerminal();
+    };
+  </script>
+</body>
+</html>
