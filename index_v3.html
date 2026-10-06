@@ -36,7 +36,6 @@
       top: 0; left: 0; bottom: 0; right: 0;
       background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 240, 0.06));
       z-index: 1000;
-      background-size: 100% 3px, 6px 100%;
       pointer-events: none;
     }
 
@@ -71,6 +70,8 @@
 
     #output {
       flex: 1;
+      min-height: 300px;
+      max-height: 60vh;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-word;
@@ -86,12 +87,13 @@
     .line.user { color: #ffffff; font-weight: bold; }
     .line.elf { color: #55ffff; }
 
-    .input-row {
+    .input-form {
       display: flex;
       align-items: center;
       gap: 10px;
       border-top: 1px solid var(--term-green-dim);
       padding-top: 12px;
+      width: 100%;
     }
 
     .prompt-label {
@@ -159,10 +161,11 @@
 
     <div id="output"></div>
 
-    <div class="input-row">
+    <form class="input-form" id="terminal-form" onsubmit="event.preventDefault(); handleCommand();">
       <span class="prompt-label">miguel@elfo-shell:~$</span>
       <input type="text" id="cmd-input" autofocus autocomplete="off" autocapitalize="off" spellcheck="false">
-    </div>
+      <button type="submit" class="btn-cmd" style="padding: 4px 10px;">Enviar</button>
+    </form>
 
     <div class="quick-bar">
       <button type="button" class="btn-cmd" onclick="runCmd('instrucciones')">📖 instrucciones</button>
@@ -212,13 +215,13 @@
     let outputEl, inputEl, badgeEl;
 
     function updateBadge() {
-      if (badgeEl) badgeEl.innerText = `${solvedDays.length}/24 FLAGS`;
+      if (badgeEl) badgeEl.innerText = solvedDays.length + "/24 FLAGS";
     }
 
-    function printLine(text, type = '') {
+    function printLine(text, type) {
       if (!outputEl) return;
-      const div = document.createElement('div');
-      div.className = `line ${type}`;
+      var div = document.createElement('div');
+      div.className = 'line ' + (type || '');
       div.innerText = text;
       outputEl.appendChild(div);
       outputEl.scrollTop = outputEl.scrollHeight;
@@ -239,7 +242,8 @@
       printLine("3. Descifra la prueba para obtener la clave (formato FLAG{...}).");
       printLine("4. Ingresa la respuesta ejecutando: elfo solve --day [NÚMERO] --flag [CLAVE]");
       printLine("5. Si te atascas, ejecuta: elfo hint --day [NÚMERO]");
-      printLine("==================================================================\n", "sys");
+      printLine("==================================================================
+", "sys");
     }
 
     function initTerminal() {
@@ -249,29 +253,26 @@
 
       if (!outputEl || !inputEl) return;
 
-      inputEl.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') handleCommand();
-      });
-
       updateBadge();
       printLine("==================================================================", "sys");
       printLine("         ELF IN THE SHELL v2.0 - [SESSION: MIGUEL]", "elf");
       printLine("==================================================================", "sys");
       printLine("[!] ATENCIÓN MIGUEL: El virus ELFO.SYS se ha apoderado de la red.");
       printLine("[!] Tus regalos navideños han sido cifrados.");
-      printLine("Escribe 'instrucciones' o 'help' para ver los comandos.\n");
+      printLine("Escribe 'instrucciones' o 'help' para ver los comandos.
+");
     }
 
     function handleCommand() {
       if (!inputEl) return;
-      let val = inputEl.value.trim();
+      var val = inputEl.value.trim();
       if (!val) return;
 
-      printLine(`miguel@elfo-shell:~$ ${val}`, 'user');
+      printLine("miguel@elfo-shell:~$ " + val, 'user');
       inputEl.value = '';
 
       val = val.replace(/—/g, '--').replace(/–/g, '--');
-      const lowerVal = val.toLowerCase();
+      var lowerVal = val.toLowerCase();
 
       if (lowerVal === 'instrucciones' || lowerVal === 'manual') {
         showManual();
@@ -292,35 +293,37 @@
       else if (lowerVal === 'matrix') {
         toggleMatrix();
       }
-      else if (lowerVal.startsWith('elfo')) {
-        const dayMatch = val.match(/--day\s+(\d+)/i);
-        const dayVal = dayMatch ? parseInt(dayMatch[1]) : null;
+      else if (lowerVal.indexOf('elfo') === 0) {
+        var dayMatch = val.match(/--day\s+(\d+)/i);
+        var dayVal = dayMatch ? parseInt(dayMatch[1]) : null;
 
-        if (lowerVal.includes('status')) {
+        if (lowerVal.indexOf('status') !== -1) {
           printLine("--- ESTADO DEL CALENDARIO DE MIGUEL ---", "warn");
-          printLine(`Progreso actual: ${solvedDays.length} de 24 días completados.`);
-          printLine(`Días resueltos: ${solvedDays.length > 0 ? solvedDays.sort((a,b)=>a-b).join(', ') : 'Ninguno todavía'}`);
-          const exportCode = btoa(JSON.stringify(solvedDays));
-          printLine(`\nCódigo de Sincronización con la Novia:\n${exportCode}`, "sys");
+          printLine("Progreso actual: " + solvedDays.length + " de 24 días completados.");
+          printLine("Días resueltos: " + (solvedDays.length > 0 ? solvedDays.sort(function(a,b){return a-b;}).join(', ') : 'Ninguno todavía'));
+          var exportCode = btoa(JSON.stringify(solvedDays));
+          printLine("
+Código de Sincronización con la Novia:
+" + exportCode, "sys");
         }
-        else if (lowerVal.includes('log')) {
+        else if (lowerVal.indexOf('log') !== -1) {
           printLine("--- REGISTRO DE TRAVESURAS EN CASA ---", "warn");
-          for (let d = 1; d <= 24; d++) {
-            const isSolved = solvedDays.includes(d);
-            const statusStr = isSolved ? '[DESBLOQUEADO]' : '[LOCKED]';
-            printLine(`Día ${d < 10 ? '0'+d : d}: ${statusStr} Broma en: ${GAME_DATA[d].location}`);
+          for (var d = 1; d <= 24; d++) {
+            var isSolved = solvedDays.indexOf(d) !== -1;
+            var statusStr = isSolved ? '[DESBLOQUEADO]' : '[LOCKED]';
+            printLine("Día " + (d < 10 ? '0'+d : d) + ": " + statusStr + " Broma en: " + GAME_DATA[d].location);
           }
         }
-        else if (lowerVal.includes('hint')) {
+        else if (lowerVal.indexOf('hint') !== -1) {
           if (!dayVal || !GAME_DATA[dayVal]) {
             printLine("Error: Especifica un día válido. Ejemplo: elfo hint --day 1", "err");
           } else {
-            printLine(`[PISTA DÍA ${dayVal}]: ${GAME_DATA[dayVal].hint}`, "elf");
+            printLine("[PISTA DÍA " + dayVal + "]: " + GAME_DATA[dayVal].hint, "elf");
           }
         }
-        else if (lowerVal.includes('solve')) {
-          const flagMatch = val.match(/--flag\s+(.+)$/i);
-          const flagVal = flagMatch ? flagMatch[1].trim() : null;
+        else if (lowerVal.indexOf('solve') !== -1) {
+          var flagMatch = val.match(/--flag\s+(.+)$/i);
+          var flagVal = flagMatch ? flagMatch[1].trim() : null;
 
           if (!dayVal || !flagVal || !GAME_DATA[dayVal]) {
             printLine("Error: Formato incorrecto. Ejemplo: elfo solve --day 1 --flag FLAG{...}", "err");
@@ -328,8 +331,8 @@
           }
 
           if (flagVal === GAME_DATA[dayVal].flag) {
-            printLine(`[✔] ¡CORRECTO MIGUEL! Día ${dayVal} desbloqueado exitosamente.`, "sys");
-            if (!solvedDays.includes(dayVal)) {
+            printLine("[✔] ¡CORRECTO MIGUEL! Día " + dayVal + " desbloqueado exitosamente.", "sys");
+            if (solvedDays.indexOf(dayVal) === -1) {
               solvedDays.push(dayVal);
               try {
                 localStorage.setItem('miguel_elfo_solved', JSON.stringify(solvedDays));
@@ -337,7 +340,8 @@
               updateBadge();
             }
             if (dayVal === 24) {
-              printLine("\n🎄 ¡FELICIDADES MIGUEL! HAS COMPLETADO EL CALENDARIO 🎄", "warn");
+              printLine("
+🎄 ¡FELICIDADES MIGUEL! HAS COMPLETADO EL CALENDARIO 🎄", "warn");
               printLine("SISTEMA DESENCRIPTADO. Puedes abrir tu regalo final.", "elf");
             }
           } else {
@@ -349,13 +353,13 @@
         }
       } 
       else {
-        printLine(`Comando no reconocido: '${val}'. Escribe 'help'.`, "err");
+        printLine("Comando no reconocido: '" + val + "'. Escribe 'help'.", "err");
       }
     }
 
-    let matrixInterval = null;
+    var matrixInterval = null;
     function toggleMatrix() {
-      const canvas = document.getElementById('matrix-canvas');
+      var canvas = document.getElementById('matrix-canvas');
       if (!canvas) return;
       if (canvas.style.display === 'block') {
         canvas.style.display = 'none';
@@ -363,19 +367,19 @@
         printLine("Efecto Matrix desactivado.", "sys");
       } else {
         canvas.style.display = 'block';
-        const ctx = canvas.getContext('2d');
+        var ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        const chars = "011010010101010101010010101010";
-        const drops = Array(Math.floor(canvas.width / 20)).fill(1);
+        var chars = "011010010101010101010010101010";
+        var drops = Array(Math.floor(canvas.width / 20)).fill(1);
         
-        matrixInterval = setInterval(() => {
+        matrixInterval = setInterval(function() {
           ctx.fillStyle = "rgba(5, 11, 5, 0.05)";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.fillStyle = "#33ff33";
           ctx.font = "15px monospace";
-          drops.forEach((y, i) => {
-            const text = chars[Math.floor(Math.random() * chars.length)];
+          drops.forEach(function(y, i) {
+            var text = chars[Math.floor(Math.random() * chars.length)];
             ctx.fillText(text, i * 20, y * 20);
             if (y * 20 > canvas.height && Math.random() > 0.975) drops[i] = 0;
             drops[i]++;
@@ -385,7 +389,9 @@
       }
     }
 
-    document.addEventListener("DOMContentLoaded", initTerminal);
+    window.onload = function() {
+      initTerminal();
+    };
   </script>
 </body>
 </html>
