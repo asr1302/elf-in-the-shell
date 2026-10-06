@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELF IN THE SHELL v2.0 - North Pole OS [MIGUEL SESSION]</title>
+  <style>
+    :root {
+      --bg: #050b05;
+      --term-green: #33ff33;
+      --term-green-dim: #1a801a;
+      --term-green-glow: rgba(51, 255, 51, 0.4);
+      --term-alert: #ff3333;
+      --term-yellow: #ffff33;
+      --font-mono: 'Courier New', Courier, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--term-green);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding: 15px;
+      position: relative;
+    }
+
+    /* CRT Screen Scanlines effect */
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 240, 0.06));
+      z-index: 1000;
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+
+    .terminal-container {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid var(--term-green-dim);
+      box-shadow: 0 0 15px var(--term-green-glow);
+      padding: 20px;
+      background-color: rgba(5, 11, 5, 0.95);
+      border-radius: 6px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed var(--term-green-dim);
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+      font-size: 0.85rem;
+      color: var(--term-green-dim);
+    }
+
+    .status-badge {
+      color: var(--term-yellow);
+      font-weight: bold;
+    }
+
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+      margin-bottom: 15px;
+      padding-right: 5px;
+    }
+
+    .line { margin-bottom: 6px; }
+    .line.sys { color: var(--term-green-dim); }
+    .line.err { color: var(--term-alert); }
+    .line.warn { color: var(--term-yellow); }
+    .line.user { color: #ffffff; font-weight: bold; }
+    .line.elf { color: #55ffff; }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--term-green-dim);
+      padding-top: 12px;
+    }
+
+    .prompt-label {
+      color: var(--term-green);
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    #cmd-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--term-green);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      text-shadow: 0 0 5px var(--term-green-glow);
+    }
+
+    /* Mobile Quick Controls */
+    .quick-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-cmd {
+      background: rgba(51, 255, 51, 0.1);
+      border: 1px solid var(--term-green-dim);
+      color: var(--term-green);
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-cmd:hover {
+      background: var(--term-green);
+      color: #000;
+      box-shadow: 0 0 8px var(--term-green);
+    }
+
+    #matrix-canvas {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 500;
+      opacity: 0.15;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="matrix-canvas"></canvas>
+
+  <div class="terminal-container">
+    <div class="header-bar">
+      <span>HOST: NORTH-POLE-MAIN-SERVER</span>
+      <span>USER: <span class="status-badge">MIGUEL</span></span>
+      <span>STATUS: <span class="status-badge" id="prog-badge">0/24 FLAGS</span></span>
+    </div>
+
+    <div id="output"></div>
+
+    <div class="input-row">
+      <span class="prompt-label">miguel@elfo-shell:~$</span>
+      <input type="text" id="cmd-input" autofocus autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="quick-bar">
+      <button class="btn-cmd" onclick="runCmd('elfo status')">elfo status</button>
+      <button class="btn-cmd" onclick="runCmd('elfo hint')">elfo hint</button>
+      <button class="btn-cmd" onclick="runCmd('elfo log')">elfo log</button>
+      <button class="btn-cmd" onclick="runCmd('help')">help</button>
+      <button class="btn-cmd" onclick="runCmd('clear')">clear</button>
+    </div>
+  </div>
+
+  <script>
+    const PLAYER_NAME = "Miguel";
+    
+    // Base de datos de los 24 Días
+    const GAME_DATA = {
+      1: { location: "Cocina / Cafetera", riddle: "Descifra Base64: SG9sYSBNdW5kbyAhIEVsIGVsZm8geWEgZXN0YSBhcXVpLg==", flag: "FLAG{Hola Mundo ! El elfo ya esta aqui.}", hint: "Usa `echo '...' | base64 -d` en tu consola linux." },
+      2: { location: "Enredo de Cables Ethernet", riddle: "Código Morse: -.-. .- -... .-.. . ... / . -. .-. . -.. .- -.. --- ...", flag: "FLAG{CABLES_ENREDADOS}", hint: "Traduce los puntos y rayas a texto alfabético." },
+      3: { location: "Pantalla del Monitor", riddle: "Sintaxis bug: print('Hola Miguel' + 2026)", flag: "FLAG{BUG_FIXED}", hint: "TypeError: can only concatenate str (not 'int') to str. Convierte 2026 a str()." },
+      4: { location: "Router Wi-Fi", riddle: "Hash MD5 de la clave por defecto: 2026elfo", flag: "FLAG{ROUTER_HACKED}", hint: "El valor es el MD5 traducido o 'ROUTER_HACKED'." },
+      5: { location: "Teclado del PC", riddle: "Binario: 01000101 01001100 01000110 01001111", flag: "FLAG{BINARY_ELFE}", hint: "Traduce ASCII binario a letras (E-L-F-O)." },
+      6: { location: "Ratón / Mousepad", riddle: "César Ciphers (+3 de desplazamiento): HOSR", flag: "FLAG{ELFO}", hint: "Resta 3 posiciones a cada letra del alfabeto." },
+      7: { location: "Silla del Escritorio", riddle: "Hexadecimal: 4e 41 56 49 44 41 44", flag: "FLAG{NAVIDAD}", hint: "4N=N, 41=A, 56=V, 49=I..." },
+      8: { location: "Lámpara de Estudio", riddle: "Puerto por defecto del protocolo SSH", flag: "FLAG{PORT_22}", hint: "El puerto seguro de administración Unix estándar." },
+      9: { location: "Estantería de Libros", riddle: "Lógica booleana: TRUE AND (FALSE OR TRUE)", flag: "FLAG{TRUE}", hint: "Evaluación estándar de circuitos lógicos." },
+      10: { location: "Debajo de la Alfombra", riddle: "Inyección SQL básica: ' OR 1=1 --", flag: "FLAG{SQL_INJECTION}", hint: "La vulnerabilidad clásica de autenticación." },
+      11: { location: "Ventana / Radiador", riddle: "Comando Unix para ver procesos activos", flag: "FLAG{PS_AUX}", hint: "Muestra todos los procesos del sistema (`ps aux`)." },
+      12: { location: "Mochila / Auriculares", riddle: "Comando Git para enviar cambios al servidor remoto", flag: "FLAG{GIT_PUSH}", hint: "`git push origin main`" },
+      13: { location: "Nevera / Frigorífico", riddle: "Código de respuesta HTTP para 'No Encontrado'", flag: "FLAG{404}", hint: "El error web más famoso del mundo." },
+      14: { location: "Cajón del Escritorio", riddle: "Acrónimo de la memoria principal volátil del ordenador", flag: "FLAG{RAM}", hint: "Random Access Memory." },
+      15: { location: "Detrás de la Pantalla", riddle: "Superusuario en sistemas GNU/Linux", flag: "FLAG{ROOT}", hint: "El usuario con todos los privilegios." },
+      16: { location: "Zapatero / Entrada", riddle: "Algoritmo de búsqueda logarítmica O(log n)", flag: "FLAG{BINARY_SEARCH}", hint: "Búsqueda binaria sobre un array ordenado." },
+      17: { location: "Mesa del Salón", riddle: "Máscara de subred por defecto Clase C (/24)", flag: "FLAG{255.255.255.0}", hint: "Mascara decimal con 24 unos consecutivos." },
+      18: { location: "Enchufe / Regleta", riddle: "Estructura de datos LIFO (Last In, First Out)", flag: "FLAG{STACK}", hint: "Pila de datos." },
+      19: { location: "Cojín del Sofá", riddle: "Formato ligero de intercambio de datos muy usado en APIs", flag: "FLAG{JSON}", hint: "JavaScript Object Notation." },
+      20: { location: "Manga / Cómic Cyberpunk", riddle: "Obra de animación que inspira este juego (Ghost in the...)", flag: "FLAG{SHELL}", hint: "Ghost in the..." },
+      21: { location: "Espejo del Baño", riddle: "Bucle infinito en lenguaje Python", flag: "FLAG{WHILE_TRUE}", hint: "`while True:`" },
+      22: { location: "Armario de la Ropa", riddle: "Acrónimo de 'First In, First Out'", flag: "FLAG{FIFO}", hint: "Estructura de cola (Queue)." },
+      23: { location: "Árbol de Navidad", riddle: "Comando para cambiar permisos de archivo a 777 en Unix", flag: "FLAG{CHMOD_777}", hint: "Otorga lectura, escritura y ejecución a todos." },
+      24: { location: "Caja del Regalo Principal", riddle: "Clave maestra final del servidor", flag: "FLAG{FELIZ_NAVIDAD_MIGUEL}", hint: "Combina la festividad con el superusuario y tu nombre." }
+    };
+
+    let solvedDays = JSON.parse(localStorage.getItem('miguel_elfo_solved') || '[]');
+
+    const outputEl = document.getElementById('output');
+    const inputEl = document.getElementById('cmd-input');
+    const badgeEl = document.getElementById('prog-badge');
+
+    function updateBadge() {
+      badgeEl.innerText = `${solvedDays.length}/24 FLAGS`;
+    }
+
+    function printLine(text, type = '') {
+      const div = document.createElement('div');
+      div.className = `line ${type}`;
+      div.innerText = text;
+      outputEl.appendChild(div);
+      outputEl.scrollTop = outputEl.scrollHeight;
+    }
+
+    function runCmd(cmdStr) {
+      inputEl.value = cmdStr;
+      handleCommand();
+    }
+
+    function initTerminal() {
+      updateBadge();
+      printLine("==================================================================", "sys");
+      printLine("         ELF IN THE SHELL v2.0 - [SESSION: MIGUEL]", "elf");
+      printLine("==================================================================", "sys");
+      printLine(`[!] ATENCIÓN MIGUEL: El virus ELFO.SYS se ha apoderado de la red.`);
+      printLine(`[!] Tus regalos navideños han sido cifrados.`);
+      printLine(`Escribe 'help' para ver los comandos disponibles.
+`);
+    }
+
+    function handleCommand() {
+      const val = inputEl.value.trim();
+      if (!val) return;
+
+      printLine(`miguel@elfo-shell:~$ ${val}`, 'user');
+      inputEl.value = '';
+
+      const args = val.split(' ');
+      const mainCmd = args[0].toLowerCase();
+
+      if (mainCmd === 'help') {
+        printLine("COMANDOS DISPONIBLES:", "warn");
+        printLine("  elfo status                  Muestra los días desbloqueados y tu código de guardado.");
+        printLine("  elfo solve --day X --flag F  Envía la respuesta de la prueba del día X.");
+        printLine("  elfo hint --day X            Pide una pista informática para el día X.");
+        printLine("  elfo log                     Muestra el registro de travesuras en casa.");
+        printLine("  matrix                       Activa/desactiva la lluvia de código.");
+        printLine("  clear                        Limpia la pantalla.");
+      } 
+      else if (mainCmd === 'clear') {
+        outputEl.innerHTML = '';
+      }
+      else if (mainCmd === 'matrix') {
+        toggleMatrix();
+      }
+      else if (mainCmd === 'elfo') {
+        const subCmd = args[1] ? args[1].toLowerCase() : '';
+
+        if (subCmd === 'status') {
+          printLine(`--- ESTADO DEL CALENDARIO DE MIGUEL ---`, 'warn');
+          printLine(`Progreso actual: ${solvedDays.length} de 24 días completados.`);
+          printLine(`Días resueltos: ${solvedDays.length > 0 ? solvedDays.sort((a,b)=>a-b).join(', ') : 'Ninguno todavía'}`);
+          
+          // Código de guardado exportable
+          const exportCode = btoa(JSON.stringify(solvedDays));
+          printLine(`
+Código de Sincronización con la Novia:
+${exportCode}`, 'sys');
+        }
+        else if (subCmd === 'log') {
+          printLine(`--- REGISTRO DE TRAVESURAS EN CASA ---`, 'warn');
+          for (let d = 1; d <= 24; d++) {
+            const isSolved = solvedDays.includes(d);
+            const statusStr = isSolved ? '[DESBLOQUEADO]' : '[LOCKED]';
+            printLine(`Día ${d < 10 ? '0'+d : d}: ${statusStr} Broma en: ${GAME_DATA[d].location}`);
+          }
+        }
+        else if (subCmd === 'hint') {
+          const dayIdx = args.indexOf('--day');
+          const dayVal = dayIdx !== -1 ? parseInt(args[dayIdx + 1]) : null;
+
+          if (!dayVal || !GAME_DATA[dayVal]) {
+            printLine("Error: Uso correcto -> elfo hint --day [1-24]", "err");
+          } else {
+            printLine(`[PISTA DÍA ${dayVal}]: ${GAME_DATA[dayVal].hint}`, "elf");
+          }
+        }
+        else if (subCmd === 'solve') {
+          const dayIdx = args.indexOf('--day');
+          const flagIdx = args.indexOf('--flag');
+
+          const dayVal = dayIdx !== -1 ? parseInt(args[dayIdx + 1]) : null;
+          const flagVal = flagIdx !== -1 ? args.slice(flagIdx + 1).join(' ') : null;
+
+          if (!dayVal || !flagVal || !GAME_DATA[dayVal]) {
+            printLine("Error: Uso correcto -> elfo solve --day [1-24] --flag FLAG{...}", "err");
+            return;
+          }
+
+          if (flagVal.trim() === GAME_DATA[dayVal].flag) {
+            printLine(`[✔] ¡CORRECTO MIGUEL! Día ${dayVal} desbloqueado exitosamente.`, "line");
+            if (!solvedDays.includes(dayVal)) {
+              solvedDays.push(dayVal);
+              localStorage.setItem('miguel_elfo_solved', JSON.stringify(solvedDays));
+              updateBadge();
+            }
+            if (dayVal === 24) {
+              printLine("
+🎄 ¡FELICIDADES MIGUEL! ¡HAS COMPLETADO EL CALENDARIO DE ADVIENTO! 🎄", "warn");
+              printLine("SISTEMA TOTALMENTE DESENCRIPTADO. Puedes abrir tu regalo final.", "elf");
+            }
+          } else {
+            printLine(`[✘] FLAG INCORRECTA. El elfo se ríe de ti... Inténtalo de nuevo.`, "err");
+          }
+        }
+        else {
+          printLine("Subcomando elfo no reconocido. Prueba con: status, solve, hint, log", "err");
+        }
+      } 
+      else {
+        printLine(`Comando no encontrado: ${mainCmd}. Escribe 'help'.`, "err");
+      }
+    }
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleCommand();
+    });
+
+    // Matrix Rain Effect
+    let matrixInterval = null;
+    function toggleMatrix() {
+      const canvas = document.getElementById('matrix-canvas');
+      if (canvas.style.display === 'block') {
+        canvas.style.display = 'none';
+        clearInterval(matrixInterval);
+        printLine("Efecto Matrix desactivado.", "sys");
+      } else {
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const chars = "011010010101010101010010101010";
+        const drops = Array(Math.floor(canvas.width / 20)).fill(1);
+        
+        matrixInterval = setInterval(() => {
+          ctx.fillStyle = "rgba(5, 11, 5, 0.05)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#33ff33";
+          ctx.font = "15px monospace";
+          drops.forEach((y, i) => {
+            const text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * 20, y * 20);
+            if (y * 20 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+          });
+        }, 50);
+        printLine("Efecto Matrix activado.", "sys");
+      }
+    }
+
+    initTerminal();
+  </script>
+</body>
+</html>
