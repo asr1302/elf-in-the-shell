@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PANEL MASTER / ADMIN - Elf in the Shell [SOLUCIONARIO Y MANUAL]</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --accent: #58a6ff;
+      --success: #238636;
+      --warn: #d29922;
+      --alert: #f85149;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    h1 { color: #fff; font-size: 1.8rem; }
+    .subtitle { color: #8b949e; font-size: 0.9rem; margin-top: 5px; }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Sync section */
+    .sync-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #fff;
+      font-family: monospace;
+    }
+
+    button {
+      background-color: var(--success);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover { opacity: 0.9; }
+    button.btn-reset { background-color: var(--alert); }
+
+    /* Progress bar */
+    .progress-bar-bg {
+      background: var(--bg);
+      border-radius: 10px;
+      height: 20px;
+      width: 100%;
+      overflow: hidden;
+      margin: 10px 0;
+      border: 1px solid var(--border);
+    }
+
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #238636, #3fb950);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    /* Table solution */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    th {
+      background-color: rgba(255,255,255,0.05);
+      color: #fff;
+    }
+
+    .flag-code {
+      font-family: monospace;
+      color: #7ee787;
+      background: rgba(46,160,67,0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .status-tag {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .status-tag.done { background: rgba(35,134,54,0.3); color: #3fb950; }
+    .status-tag.pending { background: rgba(210,153,34,0.2); color: #d29922; }
+
+    ol, ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div>
+        <h1>🕵️‍♀️ Panel Master & Solucionario Navideño</h1>
+        <div class="subtitle">Control total del juego "Elf in the Shell" para Miguel</div>
+      </div>
+      <div>
+        <button class="btn-reset" onclick="resetProgress()">Reiniciar Progreso de Miguel</button>
+      </div>
+    </header>
+
+    <!-- PROGRESO -->
+    <div class="card">
+      <div class="card-title">📊 Avance Actual de Miguel</div>
+      <div id="prog-text">Cargando estado...</div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="prog-fill"></div>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label style="font-size: 0.85rem; color: #8b949e;">Sincronizar código enviado por Miguel (`elfo status`):</label>
+        <div class="sync-box">
+          <input type="text" id="sync-input" placeholder="Pega el código Base64 aquí...">
+          <button onclick="syncCode()">Sincronizar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL Y REGLAS -->
+    <div class="card">
+      <div class="card-title">📖 Manual de Uso Rápidopar la Novia</div>
+      <ol>
+        <li><strong>Cada noche antes de ir a dormir:</strong> Revisa en la tabla de abajo el día correspondiente.</li>
+        <li><strong>Prepara la travesura:</strong> Coloca al elfo en la ubicación indicada (ejemplo: Día 1 en la cafetera) con el papel/pista necesaria.</li>
+        <li><strong>Durante el día:</strong> Miguel resolverá el enigma desde su móvil u ordenador abriendo la consola web.</li>
+        <li><strong>En caso de atasco:</strong> Puedes usar la columna <em>"Pista Informática / Respuesta"</em> de la tabla para darle un pequeño empujón en persona.</li>
+      </ol>
+    </div>
+
+    <!-- TABLA SOLUCIONARIO -->
+    <div class="card">
+      <div class="card-title">🔑 Solucionario Completo de los 24 Días</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Ubicación de la Broma</th>
+            <th>Enigma / Prueba Informática</th>
+            <th>Flag de Respuesta Exacta</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="solution-table">
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    const GAME_DATA = {
+      1: { location: "Cocina / Cafetera", riddle: "Descifra Base64", flag: "FLAG{Hola Mundo ! El elfo ya esta aqui.}" },
+      2: { location: "Enredo de Cables Ethernet", riddle: "Código Morse", flag: "FLAG{CABLES_ENREDADOS}" },
+      3: { location: "Pantalla del Monitor", riddle: "Sintaxis Bug Python", flag: "FLAG{BUG_FIXED}" },
+      4: { location: "Router Wi-Fi", riddle: "MD5 / Hack Router", flag: "FLAG{ROUTER_HACKED}" },
+      5: { location: "Teclado del PC", riddle: "Código Binario ASCII", flag: "FLAG{BINARY_ELFE}" },
+      6: { location: "Ratón / Mousepad", riddle: "Cifrado César", flag: "FLAG{ELFO}" },
+      7: { location: "Silla del Escritorio", riddle: "Hexadecimal ASCII", flag: "FLAG{NAVIDAD}" },
+      8: { location: "Lámpara de Estudio", riddle: "Puerto SSH", flag: "FLAG{PORT_22}" },
+      9: { location: "Estantería de Libros", riddle: "Lógica Booleana", flag: "FLAG{TRUE}" },
+      10: { location: "Debajo de la Alfombra", riddle: "Inyección SQL", flag: "FLAG{SQL_INJECTION}" },
+      11: { location: "Ventana / Radiador", riddle: "Comando 'ps aux'", flag: "FLAG{PS_AUX}" },
+      12: { location: "Mochila / Auriculares", riddle: "Comando 'git push'", flag: "FLAG{GIT_PUSH}" },
+      13: { location: "Nevera / Frigorífico", riddle: "Error HTTP 404", flag: "FLAG{404}" },
+      14: { location: "Cajón del Escritorio", riddle: "Memoria RAM", flag: "FLAG{RAM}" },
+      15: { location: "Detrás de la Pantalla", riddle: "Usuario Root", flag: "FLAG{ROOT}" },
+      16: { location: "Zapatero / Entrada", riddle: "Búsqueda Binaria", flag: "FLAG{BINARY_SEARCH}" },
+      17: { location: "Mesa del Salón", riddle: "Máscara Subred /24", flag: "FLAG{255.255.255.0}" },
+      18: { location: "Enchufe / Regleta", riddle: "Estructura Stack", flag: "FLAG{STACK}" },
+      19: { location: "Cojín del Sofá", riddle: "Formato JSON", flag: "FLAG{JSON}" },
+      20: { location: "Manga / Cómic Cyberpunk", riddle: "Ghost in the Shell", flag: "FLAG{SHELL}" },
+      21: { location: "Espejo del Baño", riddle: "Bucle 'while True'", flag: "FLAG{WHILE_TRUE}" },
+      22: { location: "Armario de la Ropa", riddle: "Cola FIFO", flag: "FLAG{FIFO}" },
+      23: { location: "Árbol de Navidad", riddle: "Permisos chmod 777", flag: "FLAG{CHMOD_777}" },
+      24: { location: "Caja del Regalo Principal", riddle: "Master Key Final", flag: "FLAG{FELIZ_NAVIDAD_MIGUEL}" }
+    };
+
+    function getSolved() {
+      return JSON.parse(localStorage.getItem('miguel_elfo_solved') || '[]');
+    }
+
+    function renderDashboard() {
+      const solved = getSolved();
+      const pct = Math.round((solved.length / 24) * 100);
+
+      document.getElementById('prog-text').innerText = `${solved.length} de 24 Días Completados (${pct}%)`;
+      document.getElementById('prog-fill').style.width = `${pct}%`;
+
+      const tbody = document.getElementById('solution-table');
+      tbody.innerHTML = '';
+
+      for (let d = 1; d <= 24; d++) {
+        const item = GAME_DATA[d];
+        const isSolved = solved.includes(d);
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>Día ${d < 10 ? '0'+d : d}</strong></td>
+          <td>${item.location}</td>
+          <td>${item.riddle}</td>
+          <td><span class="flag-code">${item.flag}</span></td>
+          <td><span class="status-tag ${isSolved ? 'done' : 'pending'}">${isSolved ? 'COMPLETADO' : 'PENDIENTE'}</span></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function syncCode() {
+      const code = document.getElementById('sync-input').value.trim();
+      if (!code) return;
+      try {
+        const decoded = JSON.parse(atob(code));
+        if (Array.isArray(decoded)) {
+          localStorage.setItem('miguel_elfo_solved', JSON.stringify(decoded));
+          renderDashboard();
+          alert("¡Sincronización exitosa! Progreso de Miguel actualizado.");
+        }
+      } catch (e) {
+        alert("Código de sincronización no válido.");
+      }
+    }
+
+    function resetProgress() {
+      if (confirm("¿Seguro que quieres borrar el progreso de Miguel para empezar de cero?")) {
+        localStorage.removeItem('miguel_elfo_solved');
+        renderDashboard();
+      }
+    }
+
+    renderDashboard();
+  </script>
+</body>
+</html>
