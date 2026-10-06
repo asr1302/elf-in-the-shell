@@ -29,7 +29,6 @@
       position: relative;
     }
 
-    /* CRT Screen Scanlines effect */
     body::before {
       content: " ";
       display: block;
@@ -112,7 +111,6 @@
       text-shadow: 0 0 5px var(--term-green-glow);
     }
 
-    /* Mobile Quick Controls */
     .quick-bar {
       display: flex;
       gap: 8px;
@@ -167,6 +165,7 @@
     </div>
 
     <div class="quick-bar">
+      <button class="btn-cmd" onclick="runCmd('instrucciones')">📖 instrucciones</button>
       <button class="btn-cmd" onclick="runCmd('elfo status')">elfo status</button>
       <button class="btn-cmd" onclick="runCmd('elfo hint')">elfo hint</button>
       <button class="btn-cmd" onclick="runCmd('elfo log')">elfo log</button>
@@ -178,7 +177,6 @@
   <script>
     const PLAYER_NAME = "Miguel";
     
-    // Base de datos de los 24 Días
     const GAME_DATA = {
       1: { location: "Cocina / Cafetera", riddle: "Descifra Base64: SG9sYSBNdW5kbyAhIEVsIGVsZm8geWEgZXN0YSBhcXVpLg==", flag: "FLAG{Hola Mundo ! El elfo ya esta aqui.}", hint: "Usa `echo '...' | base64 -d` en tu consola linux." },
       2: { location: "Enredo de Cables Ethernet", riddle: "Código Morse: -.-. .- -... .-.. . ... / . -. .-. . -.. .- -.. --- ...", flag: "FLAG{CABLES_ENREDADOS}", hint: "Traduce los puntos y rayas a texto alfabético." },
@@ -201,7 +199,7 @@
       19: { location: "Cojín del Sofá", riddle: "Formato ligero de intercambio de datos muy usado en APIs", flag: "FLAG{JSON}", hint: "JavaScript Object Notation." },
       20: { location: "Manga / Cómic Cyberpunk", riddle: "Obra de animación que inspira este juego (Ghost in the...)", flag: "FLAG{SHELL}", hint: "Ghost in the..." },
       21: { location: "Espejo del Baño", riddle: "Bucle infinito en lenguaje Python", flag: "FLAG{WHILE_TRUE}", hint: "`while True:`" },
-      22: { location: "Armario de la Ropa", riddle: "Acrónimo de 'First In, First Out'", flag: "FLAG{FIFO}", hint: "Estructura de cola (Queue)." },
+      22: { location: "Armario de la Ropa", riddle: "Cola FIFO", flag: "FLAG{FIFO}", hint: "Estructura de cola (Queue)." },
       23: { location: "Árbol de Navidad", riddle: "Comando para cambiar permisos de archivo a 777 en Unix", flag: "FLAG{CHMOD_777}", hint: "Otorga lectura, escritura y ejecución a todos." },
       24: { location: "Caja del Regalo Principal", riddle: "Clave maestra final del servidor", flag: "FLAG{FELIZ_NAVIDAD_MIGUEL}", hint: "Combina la festividad con el superusuario y tu nombre." }
     };
@@ -229,6 +227,19 @@
       handleCommand();
     }
 
+    function showManual() {
+      printLine("==================================================================", "sys");
+      printLine("                  [!] INSTRUCCIONES DEL OPERADOR [!]", "warn");
+      printLine("==================================================================", "sys");
+      printLine("1. Cada día del 1 al 24 de diciembre el Elfo dejará una broma en casa.");
+      printLine("2. Junto a la broma habrá un enigma o prueba informática.");
+      printLine("3. Descifra la prueba para obtener la clave (formato FLAG{...}).");
+      printLine("4. Ingresa la respuesta ejecutando: elfo solve --day [NÚMERO] --flag [CLAVE]");
+      printLine("5. Si te atascas, ejecuta: elfo hint --day [NÚMERO]");
+      printLine("==================================================================
+", "sys");
+    }
+
     function initTerminal() {
       updateBadge();
       printLine("==================================================================", "sys");
@@ -236,7 +247,7 @@
       printLine("==================================================================", "sys");
       printLine(`[!] ATENCIÓN MIGUEL: El virus ELFO.SYS se ha apoderado de la red.`);
       printLine(`[!] Tus regalos navideños han sido cifrados.`);
-      printLine(`Escribe 'help' para ver los comandos disponibles.
+      printLine(`Escribe 'instrucciones' o 'help' para ver los comandos.
 `);
     }
 
@@ -250,9 +261,13 @@
       const args = val.split(' ');
       const mainCmd = args[0].toLowerCase();
 
-      if (mainCmd === 'help') {
+      if (mainCmd === 'instrucciones' || mainCmd === 'manual') {
+        showManual();
+      }
+      else if (mainCmd === 'help') {
         printLine("COMANDOS DISPONIBLES:", "warn");
-        printLine("  elfo status                  Muestra los días desbloqueados y tu código de guardado.");
+        printLine("  instrucciones                Muestra el manual de instrucciones.");
+        printLine("  elfo status                  Muestra los días resueltos y tu código de sincronización.");
         printLine("  elfo solve --day X --flag F  Envía la respuesta de la prueba del día X.");
         printLine("  elfo hint --day X            Pide una pista informática para el día X.");
         printLine("  elfo log                     Muestra el registro de travesuras en casa.");
@@ -273,7 +288,6 @@
           printLine(`Progreso actual: ${solvedDays.length} de 24 días completados.`);
           printLine(`Días resueltos: ${solvedDays.length > 0 ? solvedDays.sort((a,b)=>a-b).join(', ') : 'Ninguno todavía'}`);
           
-          // Código de guardado exportable
           const exportCode = btoa(JSON.stringify(solvedDays));
           printLine(`
 Código de Sincronización con la Novia:
@@ -338,7 +352,6 @@ ${exportCode}`, 'sys');
       if (e.key === 'Enter') handleCommand();
     });
 
-    // Matrix Rain Effect
     let matrixInterval = null;
     function toggleMatrix() {
       const canvas = document.getElementById('matrix-canvas');
